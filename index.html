@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>头像跨旗添加工具</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>头像鱼板跨旗添加工具 🍥🏳️‍⚧️</h1>
+
+        <div class="upload-section" id="dropArea">
+            <input type="file" id="avatarUpload" accept="image/*">
+            <label for="avatarUpload" class="upload-btn">选择文件</label>
+            <span id="fileName"></span>
+            <p class="drag-tip">或将图片拖放到此处</p>
+        </div>
+
+        <div class="preview-container">
+            <div class="preview-item">
+                <h3>原始头像</h3>
+                <div class="canvas-wrapper">
+                    <canvas id="originalCanvas"></canvas>
+                </div>
+            </div>
+            <div class="preview-item">
+                <h3>添加鱼板跨旗效果</h3>
+                <div class="canvas-wrapper">
+                    <canvas id="imageCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <button id="downloadBtn">下载处理后的头像</button>
+
+        <div class="example-container">
+            <h3>示例图片</h3>
+            <div class="example-row">
+                <div class="example-col">
+                    <p>您的头像:</p>
+                    <div class="example-avatar">
+                        <img src="头像原始.png" alt="示例头像">
+                    </div>
+                </div>
+                <div class="example-col">
+                    <p>添加鱼板跨旗效果:</p>
+                    <div class="example-flag">
+                        <img src="头像new - 副本2.png" alt="鱼板跨旗效果">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
