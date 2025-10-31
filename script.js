@@ -77,8 +77,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 绘制带效果的头像（居中显示）
                 ctx.drawImage(avatarImg, x, y, scaledWidth, scaledHeight);
 
-                // 绘制鱼板旗（跨旗）
-                drawFlag(x, y, scaledWidth, scaledHeight);
+                // 绘制鱼板旗（跨旗）- 直接处理预览
+                if (flagImg.complete) {
+                    // 计算旗子的大小 - 基于实际显示的图片尺寸
+                    const baseSize = Math.min(scaledWidth, scaledHeight);
+                    const flagSize = baseSize * FLAG_SIZE_RATIO;
+                    
+                    // 保持旗子的原有比例
+                    const flagWidth = flagSize;
+                    const flagHeight = (flagSize / flagImg.width) * flagImg.height;
+                    
+                    // 旗子放在实际图片区域的右下角
+                    const destX = x + scaledWidth - flagWidth;
+                    const destY = y + scaledHeight - flagHeight;
+
+                    // 绘制旗子
+                    ctx.drawImage(flagImg, destX, destY, flagWidth, flagHeight);
+                } else {
+                    // 如果旗子还没加载完，等待加载完成再绘制
+                    flagImg.onload = () => {
+                        const baseSize = Math.min(scaledWidth, scaledHeight);
+                        const flagSize = baseSize * FLAG_SIZE_RATIO;
+                        const flagWidth = flagSize;
+                        const flagHeight = (flagSize / flagImg.width) * flagImg.height;
+                        const destX = x + scaledWidth - flagWidth;
+                        const destY = y + scaledHeight - flagHeight;
+                        ctx.drawImage(flagImg, destX, destY, flagWidth, flagHeight);
+                    };
+                }
 
                 // 启用下载按钮
                 downloadBtn.disabled = false;
@@ -128,33 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const file = dt.files[0];
             processImageFile(file);
         }
-    }
-
-    // 绘制鱼板旗的函数 - 现在接收图片的位置和尺寸参数
-    function drawFlag(imgX, imgY, imgWidth, imgHeight) {
-        if (!flagImg.complete) {
-            // 如果旗子还没加载完，等待加载完成再绘制
-            flagImg.onload = () => drawFlag(imgX, imgY, imgWidth, imgHeight);
-            return;
-        }
-
-        // 计算旗子的大小 - 基于实际显示的图片尺寸
-        const baseSize = Math.min(imgWidth, imgHeight);
-        const flagSize = baseSize * FLAG_SIZE_RATIO;
-        
-        // 保持旗子的原有比例
-        const flagWidth = flagSize;
-        const flagHeight = (flagSize / flagImg.width) * flagImg.height;
-        
-        // 旗子放在实际图片区域的右下角
-        const destX = imgX + imgWidth - flagWidth;
-        const destY = imgY + imgHeight - flagHeight;
-
-        // 绘制旗子
-        ctx.drawImage(flagImg, destX, destY, flagWidth, flagHeight);
-        
-        // 启用下载按钮
-        downloadBtn.disabled = false;
     }
 
     // 下载按钮事件
