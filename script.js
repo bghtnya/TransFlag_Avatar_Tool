@@ -21,9 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
     imageCanvas.width = CANVAS_SIZE;
     imageCanvas.height = CANVAS_SIZE;
     
-    // 创建一个隐藏的高分辨率画布用于下载
-    const hiddenCanvas = document.createElement('canvas');
-    const hiddenCtx = hiddenCanvas.getContext('2d');
+    // 创建一个隐藏的高分辨率画布用于处理图片
+    const processCanvas = document.createElement('canvas');
+    const processCtx = processCanvas.getContext('2d');
     
     // 存储原始图像信息和文件名
     let originalImage = null;
@@ -74,37 +74,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 绘制原始头像（居中显示）
                 originalCtx.drawImage(avatarImg, x, y, scaledWidth, scaledHeight);
                 
-                // 绘制带效果的头像（居中显示）
-                ctx.drawImage(avatarImg, x, y, scaledWidth, scaledHeight);
-
-                // 绘制鱼板旗（跨旗）- 直接处理预览
+                // 在高分辨率画布上处理图片
+                processCanvas.width = avatarImg.width;
+                processCanvas.height = avatarImg.height;
+                
+                // 绘制原始图像到处理画布
+                processCtx.drawImage(avatarImg, 0, 0, avatarImg.width, avatarImg.height);
+                
+                // 在处理画布上绘制旗子
                 if (flagImg.complete) {
-                    // 计算旗子的大小 - 基于实际显示的图片尺寸
-                    const baseSize = Math.min(scaledWidth, scaledHeight);
-                    const flagSize = baseSize * FLAG_SIZE_RATIO;
-                    
-                    // 保持旗子的原有比例
-                    const flagWidth = flagSize;
-                    const flagHeight = (flagSize / flagImg.width) * flagImg.height;
-                    
-                    // 旗子放在实际图片区域的右下角
-                    const destX = x + scaledWidth - flagWidth;
-                    const destY = y + scaledHeight - flagHeight;
-
-                    // 绘制旗子
-                    ctx.drawImage(flagImg, destX, destY, flagWidth, flagHeight);
+                    drawFlagOnProcessCanvas();
                 } else {
-                    // 如果旗子还没加载完，等待加载完成再绘制
-                    flagImg.onload = () => {
-                        const baseSize = Math.min(scaledWidth, scaledHeight);
-                        const flagSize = baseSize * FLAG_SIZE_RATIO;
-                        const flagWidth = flagSize;
-                        const flagHeight = (flagSize / flagImg.width) * flagImg.height;
-                        const destX = x + scaledWidth - flagWidth;
-                        const destY = y + scaledHeight - flagHeight;
-                        ctx.drawImage(flagImg, destX, destY, flagWidth, flagHeight);
-                    };
+                    flagImg.onload = drawFlagOnProcessCanvas;
                 }
+                
+                // 将处理后的图像绘制到预览画布
+                ctx.drawImage(processCanvas, 0, 0, avatarImg.width, avatarImg.height, x, y, scaledWidth, scaledHeight);
 
                 // 启用下载按钮
                 downloadBtn.disabled = false;
@@ -112,6 +97,26 @@ document.addEventListener('DOMContentLoaded', () => {
             avatarImg.src = event.target.result;
         };
         reader.readAsDataURL(file);
+    }
+
+    // 在处理画布上绘制旗子的函数
+    function drawFlagOnProcessCanvas() {
+        if (!originalImage) return;
+        
+        // 计算旗子的大小 - 基于原始图像的最小边
+        const baseSize = Math.min(originalImage.width, originalImage.height);
+        const flagSize = baseSize * FLAG_SIZE_RATIO;
+        
+        // 保持旗子的原有比例
+        const flagWidth = flagSize;
+        const flagHeight = (flagSize / flagImg.width) * flagImg.height;
+        
+        // 旗子放在右下角
+        const destX = originalImage.width - flagWidth;
+        const destY = originalImage.height - flagHeight;
+        
+        // 在处理画布上绘制旗子
+        processCtx.drawImage(flagImg, destX, destY, flagWidth, flagHeight);
     }
 
     // 当用户上传文件时触发
@@ -169,30 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 使用原始图像的尺寸设置隐藏画布
-        hiddenCanvas.width = originalImage.width;
-        hiddenCanvas.height = originalImage.height;
-        
-        // 在隐藏画布上绘制原始图像
-        hiddenCtx.drawImage(originalImage, 0, 0, originalImage.width, originalImage.height);
-        
-        // 计算旗子的大小 - 基于原始图像的最小边
-        const baseSize = Math.min(originalImage.width, originalImage.height);
-        const flagSize = baseSize * FLAG_SIZE_RATIO;
-        
-        // 保持旗子的原有比例
-        const flagWidth = flagSize;
-        const flagHeight = (flagSize / flagImg.width) * flagImg.height;
-        
-        // 旗子放在右下角
-        const destX = originalImage.width - flagWidth;
-        const destY = originalImage.height - flagHeight;
-        
-        // 在隐藏画布上绘制旗子
-        hiddenCtx.drawImage(flagImg, destX, destY, flagWidth, flagHeight);
-        
-        // 从隐藏画布导出高分辨率图片
-        const dataURL = hiddenCanvas.toDataURL('image/png');
+        // 从处理画布导出高分辨率图片
+        const dataURL = processCanvas.toDataURL('image/png');
         // 使用原始文件名
         const downloadName = originalFileName ? `${originalFileName}_with_flag.png` : 'avatar_with_flag.png';
         downloadImage(dataURL, downloadName);
