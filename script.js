@@ -15,17 +15,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const FLAG_SIZE_RATIO = 0.9; // 旗子占头像的比例
     
     // 初始化显示用的画布大小为300x300的正方形
-    originalCanvas.width = 300;
-    originalCanvas.height = 300;
-    imageCanvas.width = 300;
-    imageCanvas.height = 300;
+    const CANVAS_SIZE = 300;
+    originalCanvas.width = CANVAS_SIZE;
+    originalCanvas.height = CANVAS_SIZE;
+    imageCanvas.width = CANVAS_SIZE;
+    imageCanvas.height = CANVAS_SIZE;
     
-    // 创建一个隐藏的高分辨率画布用于下载
-    const hiddenCanvas = document.createElement('canvas');
-    const hiddenCtx = hiddenCanvas.getContext('2d');
+    // 创建一个隐藏的高分辨率画布用于处理图片
+    const processCanvas = document.createElement('canvas');
+    const processCtx = processCanvas.getContext('2d');
     
-    // 存储原始图像信息
+    // 存储原始图像信息和文件名
     let originalImage = null;
+    let originalFileName = '';
     
     // 下载按钮始终可见，但初始状态为禁用
     downloadBtn.style.display = 'block';
@@ -45,6 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fileName) {
             fileName.textContent = file.name;
         }
+        
+        // 保存原始文件名（不含扩展名）
+        originalFileName = file.name.replace(/\.[^/.]+$/, "");
 
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -53,30 +58,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 保存原始图像引用
                 originalImage = avatarImg;
                 
-                // 显示用的画布大小为300x300
-                const canvasSize = 300;
+                // 清除画布
+                originalCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
                 
                 // 计算缩放比例，保持图像比例
-                const scale = Math.min(canvasSize / avatarImg.width, canvasSize / avatarImg.height);
+                const scale = Math.min(CANVAS_SIZE / avatarImg.width, CANVAS_SIZE / avatarImg.height);
                 const scaledWidth = avatarImg.width * scale;
                 const scaledHeight = avatarImg.height * scale;
                 
                 // 计算居中位置
-                const x = (canvasSize - scaledWidth) / 2;
-                const y = (canvasSize - scaledHeight) / 2;
-                
-                // 清除画布
-                originalCtx.clearRect(0, 0, canvasSize, canvasSize);
-                ctx.clearRect(0, 0, canvasSize, canvasSize);
+                const x = (CANVAS_SIZE - scaledWidth) / 2;
+                const y = (CANVAS_SIZE - scaledHeight) / 2;
                 
                 // 绘制原始头像（居中显示）
                 originalCtx.drawImage(avatarImg, x, y, scaledWidth, scaledHeight);
                 
-                // 绘制带效果的头像（居中显示）
-                ctx.drawImage(avatarImg, x, y, scaledWidth, scaledHeight);
-
-                // 绘制鱼板旗（跨旗）
-                drawFlag();
+                // 在高分辨率画布上处理图片
+                processCanvas.width = avatarImg.width;
+                processCanvas.height = avatarImg.height;
+                
+                // 绘制原始图像到处理画布
+                processCtx.drawImage(avatarImg, 0, 0, avatarImg.width, avatarImg.height);
+                
+                // 在处理画布上绘制旗子
+                if (flagImg.complete) {
+                    drawFlagOnProcessCanvas();
+                } else {
+                    flagImg.onload = drawFlagOnProcessCanvas;
+                }
+                
+                // 将处理后的图像绘制到预览画布
+                ctx.drawImage(processCanvas, 0, 0, avatarImg.width, avatarImg.height, x, y, scaledWidth, scaledHeight);
 
                 // 启用下载按钮
                 downloadBtn.disabled = false;
@@ -84,6 +97,26 @@ document.addEventListener('DOMContentLoaded', () => {
             avatarImg.src = event.target.result;
         };
         reader.readAsDataURL(file);
+    }
+
+    // 在处理画布上绘制旗子的函数
+    function drawFlagOnProcessCanvas() {
+        if (!originalImage) return;
+        
+        // 计算旗子的大小 - 基于原始图像的最小边
+        const baseSize = Math.min(originalImage.width, originalImage.height);
+        const flagSize = baseSize * FLAG_SIZE_RATIO;
+        
+        // 保持旗子的原有比例
+        const flagWidth = flagSize;
+        const flagHeight = (flagSize / flagImg.width) * flagImg.height;
+        
+        // 旗子放在右下角
+        const destX = originalImage.width - flagWidth;
+        const destY = originalImage.height - flagHeight;
+        
+        // 在处理画布上绘制旗子
+        processCtx.drawImage(flagImg, destX, destY, flagWidth, flagHeight);
     }
 
     // 当用户上传文件时触发
@@ -128,82 +161,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 绘制鱼板旗的函数
-    function drawFlag() {
-        if (!flagImg.complete) {
-            // 如果旗子还没加载完，等待加载完成再绘制
-            flagImg.onload = () => drawFlag();
-            return;
-        }
-
-        // 使用固定的画布尺寸
-        const canvasSize = 300;
-        
-        // 计算旗子的大小和位置
-        const flagWidth = canvasSize * FLAG_SIZE_RATIO;
-        // 保持旗子的原有比例
-        const flagHeight = (flagWidth / flagImg.width) * flagImg.height; 
-        
-        // 旗子放在右下角，完全贴合边缘
-        const destX = canvasSize - flagWidth;
-        const destY = canvasSize - flagHeight;
-
-        // 绘制旗子
-        ctx.drawImage(flagImg, destX, destY, flagWidth, flagHeight);
-        
-        // 只启用下载按钮，不改变显示状态（因为按钮始终可见）
-        downloadBtn.disabled = false;
-    }
-
     // 下载按钮事件
     downloadBtn.addEventListener('click', () => {
         if (downloadBtn.disabled) return;
         
-        // 使用原始图像的尺寸设置隐藏画布
-        if (originalImage) {
-            // 设置隐藏画布为原始图像尺寸
-            hiddenCanvas.width = originalImage.width;
-            hiddenCanvas.height = originalImage.height;
-            
-            // 在隐藏画布上绘制原始图像
-            hiddenCtx.drawImage(originalImage, 0, 0, originalImage.width, originalImage.height);
-            
-            // 计算旗子的大小和位置（保持与显示时相同的比例）
-            const flagWidth = originalImage.width * FLAG_SIZE_RATIO;
-            const flagHeight = (flagWidth / flagImg.width) * flagImg.height;
-            
-            // 旗子放在右下角
-            const destX = originalImage.width - flagWidth;
-            const destY = originalImage.height - flagHeight;
-            
-            // 在隐藏画布上绘制旗子
-            hiddenCtx.drawImage(flagImg, destX, destY, flagWidth, flagHeight);
-            
-            // 从隐藏画布导出高分辨率图片
-            const dataURL = hiddenCanvas.toDataURL('image/png');
-            
-            // 创建一个虚拟的下载链接
-            const a = document.createElement('a');
-            a.href = dataURL;
-            a.download = 'avatar_with_flag.png';
-            
-            // 触发点击下载
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        } else {
+        if (!originalImage) {
             // 如果没有原始图像，则使用当前画布
             const dataURL = imageCanvas.toDataURL('image/png');
-            
-            // 创建一个虚拟的下载链接
-            const a = document.createElement('a');
-            a.href = dataURL;
-            a.download = 'avatar_with_flag.png';
-            
-            // 触发点击下载
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            // 使用原始文件名或默认文件名
+            const downloadName = originalFileName ? `${originalFileName}_with_flag.png` : 'avatar_with_flag.png';
+            downloadImage(dataURL, downloadName);
+            return;
         }
+
+        // 从处理画布导出高分辨率图片
+        const dataURL = processCanvas.toDataURL('image/png');
+        // 使用原始文件名
+        const downloadName = originalFileName ? `${originalFileName}_with_flag.png` : 'avatar_with_flag.png';
+        downloadImage(dataURL, downloadName);
     });
+
+    // 下载图片的通用函数
+    function downloadImage(dataURL, fileName) {
+        const a = document.createElement('a');
+        a.href = dataURL;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
 });
