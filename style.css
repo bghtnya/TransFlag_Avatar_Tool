@@ -225,3 +225,33 @@ canvas {
 #imageCanvas {
     cursor: move;
 }
+
+/* 贡献者列表样式 */
+.contributor-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.contributor-item {
+    display: inline-flex;
+    align-items: center;
+    font-weight: bold;
+}
+
+.contributor-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.contributor-login {
+    color: #4CAF50;
+    text-decoration: none;
+}

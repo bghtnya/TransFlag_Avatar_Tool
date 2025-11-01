@@ -334,4 +334,50 @@ document.addEventListener('DOMContentLoaded', () => {
         a.download = (originalFileName || 'avatar') + '_with_flag.png';
         a.click();
     });
+
+    // --- 动态获取贡献者信息 ---
+    function fetchContributors() {
+        const repo = 'bghtnya/TransFlag_Avatar_Tool';
+        const url = `https://api.github.com/repos/${repo}/contributors`;
+        const container = document.getElementById('contributorsContainer');
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    // 如果 API 调用失败（例如达到速率限制），返回错误
+                    throw new Error(`GitHub API error: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(contributors => {
+                // 过滤掉 GitHub Actions 或其他自动化机器人
+                const humanContributors = contributors.filter(c => c.type === 'User');
+                
+                if (humanContributors.length === 0) {
+                    container.innerHTML = '<p>暂无贡献者信息。</p>';
+                    return;
+                }
+
+                const listItems = humanContributors.map(contributor => `
+                    <li class="contributor-item">
+                        <img src="${contributor.avatar_url}" alt="${contributor.login}'s avatar" class="contributor-avatar">
+                        <a href="${contributor.html_url}" target="_blank" class="contributor-login">${contributor.login}</a>
+                    </li>
+                `).join('');
+
+                container.innerHTML = `
+                    <p>项目贡献者：</p>
+                    <ul class="contributor-list">
+                        ${listItems}
+                    </ul>
+                `;
+            })
+            .catch(error => {
+                console.error("Failed to fetch contributors:", error);
+                container.innerHTML = '<p>无法同步贡献者信息。请访问项目仓库查看。</p>';
+            });
+    }
+
+    // 在页面加载完毕后立即调用
+    fetchContributors();
 });
