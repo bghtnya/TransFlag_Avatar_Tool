@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = imageCanvas.getContext('2d');
     const originalCtx = originalCanvas.getContext('2d');
 
-    const FLAG_IMAGE_PATH = '/res/鱼板跨旗模板.png';
+    const FLAG_IMAGE_PATH = './res/鱼板跨旗模板.png';
     const FLAG_SIZE_RATIO = 0.9;
     const CANVAS_SIZE = 300;
     imageCanvas.width = originalCanvas.width = CANVAS_SIZE;
