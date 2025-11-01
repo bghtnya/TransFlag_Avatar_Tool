@@ -155,10 +155,7 @@ canvas {
     background-color: #45a049;
 }
 
-#downloadBtn:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-}
+
 
 .example-container {
     margin-top: 30px;
@@ -182,4 +179,49 @@ canvas {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+}
+
+/* 添加跨旗控制样式 */
+.flag-controls {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.control-group {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.control-group label {
+    width: 60px;
+    font-weight: bold;
+}
+
+.control-group input[type="range"] {
+    flex: 1;
+    margin: 0 10px;
+}
+
+#resetFlagBtn {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+#resetFlagBtn:hover {
+    background-color: #45a049;
+}
+
+/* 提示拖拽功能 */
+#imageCanvas {
+    cursor: move;
 }
