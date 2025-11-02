@@ -1,4 +1,9 @@
-document.addEventListener('DOMContentLoaded', () => {
+import init, { AvatarProcessor, FlagConfig, canvas_data_to_png } from './pkg/transflag_avatar_tool.js';
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // 初始化WASM模块
+    await init();
+    
     const avatarUpload = document.getElementById('avatarUpload');
     const imageCanvas = document.getElementById('imageCanvas');
     const originalCanvas = document.getElementById('originalCanvas');
@@ -22,7 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let flagOffset = { x: 0, y: 0 };
     let flagScale = 1.0;
     let flagRotation = 0;
-    let flagStretch = { x: 1.0, y: 1.0 }; // 新：非等比拉伸比例
+    let flagStretch = { x: 1.0, y: 1.0 };
+
+    // 创建Rust处理器实例
+    const processor = new AvatarProcessor(CANVAS_SIZE, CANVAS_SIZE);
+    let flagConfig = new FlagConfig();
 
     let isDragging = false;
     let isTransforming = false;
@@ -326,13 +335,59 @@ document.addEventListener('DOMContentLoaded', () => {
         dropArea.addEventListener('drop', e => processImageFile(e.dataTransfer.files[0]));
     }
 
-    downloadBtn.addEventListener('click', () => {
+    downloadBtn.addEventListener('click', async () => {
         if (!originalImage) return;
-        const dataURL = processCanvas.toDataURL('image/png');
-        const a = document.createElement('a');
-        a.href = dataURL;
-        a.download = (originalFileName || 'avatar') + '_with_flag.png';
-        a.click();
+        
+        // 使用Rust处理图片
+        try {
+            // 获取原始图像数据
+            const canvas = document.createElement('canvas');
+            canvas.width = originalImage.width;
+            canvas.height = originalImage.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(originalImage, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // 获取旗帜图像数据
+            const flagCanvas = document.createElement('canvas');
+            flagCanvas.width = flagImg.width;
+            flagCanvas.height = flagImg.height;
+            const flagCtx = flagCanvas.getContext('2d');
+            flagCtx.drawImage(flagImg, 0, 0);
+            const flagImageData = flagCtx.getImageData(0, 0, flagCanvas.width, flagCanvas.height);
+            
+            // 更新配置
+            flagConfig.scale = flagScale;
+            flagConfig.rotation = flagRotation;
+            flagConfig.offset_x = flagOffset.x;
+            flagConfig.offset_y = flagOffset.y;
+            flagConfig.stretch_x = flagStretch.x;
+            flagConfig.stretch_y = flagStretch.y;
+            
+            // 处理图像
+            const result = processor.process_avatar(
+                new Uint8Array(imageData.data),
+                new Uint8Array(flagImageData.data),
+                flagConfig
+            );
+            
+            // 创建下载链接
+            const blob = new Blob([result], { type: 'image/png' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = (originalFileName || 'avatar') + '_with_flag.png';
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error processing image:', error);
+            // 如果Rust处理失败，回退到canvas处理
+            const dataURL = processCanvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = (originalFileName || 'avatar') + '_with_flag.png';
+            a.click();
+        }
     });
 
     // --- 动态获取贡献者信息 ---
