@@ -1,7 +1,6 @@
 import init, { AvatarProcessor, FlagConfig, canvas_data_to_png } from './pkg/transflag_avatar_tool.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 初始化WASM模块
     await init();
     
     const avatarUpload = document.getElementById('avatarUpload');
@@ -19,9 +18,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     imageCanvas.width = originalCanvas.width = CANVAS_SIZE;
     imageCanvas.height = originalCanvas.height = CANVAS_SIZE;
 
-    const processCanvas = document.createElement('canvas');
-    const processCtx = processCanvas.getContext('2d');
-
     let originalImage = null;
     let originalFileName = '';
     let flagOffset = { x: 0, y: 0 };
@@ -29,7 +25,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let flagRotation = 0;
     let flagStretch = { x: 1.0, y: 1.0 };
 
-    // 创建Rust处理器实例
     const processor = new AvatarProcessor(CANVAS_SIZE, CANVAS_SIZE);
     let flagConfig = new FlagConfig();
 
@@ -47,7 +42,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let controlPoints = {};
     let flagRect = {};
 
-    // 控件 UI：动态创建并插入到 .flag-preview 容器中
     const controls = document.createElement('div');
     controls.className = 'flag-controls';
     controls.innerHTML = `
@@ -78,7 +72,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     flagImg.crossOrigin = "Anonymous";
     flagImg.src = FLAG_IMAGE_PATH;
 
-    // 坐标换算
     function getPreviewTransform() {
         if (!originalImage) return { scale: 1, offsetX: 0, offsetY: 0 };
         const scale = Math.min(CANVAS_SIZE / originalImage.width, CANVAS_SIZE / originalImage.height);
@@ -86,16 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const offsetY = (CANVAS_SIZE - originalImage.height * scale) / 2;
         return { scale, offsetX, offsetY };
     }
-    function previewToProcess(x, y) {
-        const t = getPreviewTransform();
-        return { x: (x - t.offsetX) / t.scale, y: (y - t.offsetY) / t.scale };
-    }
-    function processToPreview(x, y) {
-        const t = getPreviewTransform();
-        return { x: x * t.scale + t.offsetX, y: y * t.scale + t.offsetY };
-    }
 
-    // 载入头像
     function processImageFile(file) {
         if (!file) return;
         fileName.textContent = file.name;
@@ -105,8 +89,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const img = new Image();
             img.onload = () => {
                 originalImage = img;
-                processCanvas.width = img.width;
-                processCanvas.height = img.height;
                 drawOriginal();
                 drawFlag();
                 downloadBtn.disabled = false;
@@ -125,121 +107,62 @@ document.addEventListener('DOMContentLoaded', async () => {
         originalCtx.drawImage(originalImage, x, y, w, h);
     }
 
-    function drawFlag() {
+    async function drawFlag() {
         if (!originalImage) return;
-        processCtx.clearRect(0, 0, processCanvas.width, processCanvas.height);
-        processCtx.drawImage(originalImage, 0, 0);
-
-        const base = Math.min(originalImage.width, originalImage.height);
-        const flagBaseSize = base * FLAG_SIZE_RATIO;
-        const flagWidth = flagBaseSize * flagScale * flagStretch.x;
-        const flagHeight = (flagImg.height / flagImg.width) * flagBaseSize * flagScale * flagStretch.y;
-
-        // 默认位置在右下角
-        const defaultX = originalImage.width - flagWidth;
-        const defaultY = originalImage.height - flagHeight;
-        const x = defaultX + flagOffset.x;
-        const y = defaultY + flagOffset.y;
-        flagRect = { x, y, width: flagWidth, height: flagHeight };
-
-        processCtx.save();
-        // 移动到旗帜中心，旋转，再绘制
-        processCtx.translate(x + flagWidth / 2, y + flagHeight / 2);
-        processCtx.rotate(flagRotation * Math.PI / 180);
-        processCtx.drawImage(flagImg, -flagWidth / 2, -flagHeight / 2, flagWidth, flagHeight);
-        processCtx.restore();
-
-        updatePreview();
-        updateControlPoints();
+        
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = originalImage.width;
+            canvas.height = originalImage.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(originalImage, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            const flagCanvas = document.createElement('canvas');
+            flagCanvas.width = flagImg.width;
+            flagCanvas.height = flagImg.height;
+            const flagCtx = flagCanvas.getContext('2d');
+            flagCtx.drawImage(flagImg, 0, 0);
+            const flagImageData = flagCtx.getImageData(0, 0, flagCanvas.width, flagCanvas.height);
+            
+            flagConfig.scale = flagScale;
+            flagConfig.rotation = flagRotation;
+            flagConfig.offset_x = flagOffset.x;
+            flagConfig.offset_y = flagOffset.y;
+            flagConfig.stretch_x = flagStretch.x;
+            flagConfig.stretch_y = flagStretch.y;
+            
+            const previewData = processor.create_preview_data(
+                new Uint8Array(imageData.data),
+                new Uint8Array(flagImageData.data),
+                CANVAS_SIZE,
+                CANVAS_SIZE,
+                flagConfig
+            );
+            
+            const imageDataArray = new Uint8ClampedArray(previewData);
+            const imgData = new ImageData(imageDataArray, CANVAS_SIZE, CANVAS_SIZE);
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            ctx.putImageData(imgData, 0, 0);
+        } catch (error) {
+            console.error('Error processing image:', error);
+        }
     }
 
-    function updatePreview() {
-        const t = getPreviewTransform();
-        ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-        ctx.drawImage(processCanvas, 0, 0, processCanvas.width, processCanvas.height,
-            t.offsetX, t.offsetY, processCanvas.width * t.scale, processCanvas.height * t.scale);
-    }
-
-    // 计算控制点位置（PS风格的关键）
-    function updateControlPoints() {
-        const cX = flagRect.x + flagRect.width / 2;
-        const cY = flagRect.y + flagRect.height / 2;
-        const angle = flagRotation * Math.PI / 180;
-        const rotatePoint = (x, y) => {
-            const dx = x - cX, dy = y - cY;
-            return { x: cX + dx * Math.cos(angle) - dy * Math.sin(angle),
-                     y: cY + dx * Math.sin(angle) + dy * Math.cos(angle) };
-        };
-        const tl = rotatePoint(flagRect.x, flagRect.y);
-        const tr = rotatePoint(flagRect.x + flagRect.width, flagRect.y);
-        const bl = rotatePoint(flagRect.x, flagRect.y + flagRect.height);
-        const br = rotatePoint(flagRect.x + flagRect.width, flagRect.y + flagRect.height);
-        const tMid = rotatePoint(flagRect.x + flagRect.width / 2, flagRect.y);
-        const handleLen = ROTATION_HANDLE_LENGTH / getPreviewTransform().scale;
-        // 旋转手柄位置
-        const rot = { x: tMid.x + handleLen * Math.sin(-angle), y: tMid.y - handleLen * Math.cos(-angle) };
-        controlPoints = {
-            topLeft: processToPreview(tl.x, tl.y),
-            topRight: processToPreview(tr.x, tr.y),
-            bottomLeft: processToPreview(bl.x, bl.y),
-            bottomRight: processToPreview(br.x, br.y),
-            rotation: processToPreview(rot.x, rot.y)
-        };
-        drawControlPoints();
-    }
-
-    // 绘制控制点和变换框
-    function drawControlPoints() {
-        updatePreview();
-        ctx.strokeStyle = '#00AAFF';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(controlPoints.topLeft.x, controlPoints.topLeft.y);
-        ctx.lineTo(controlPoints.topRight.x, controlPoints.topRight.y);
-        ctx.lineTo(controlPoints.bottomRight.x, controlPoints.bottomRight.y);
-        ctx.lineTo(controlPoints.bottomLeft.x, controlPoints.bottomLeft.y);
-        ctx.closePath();
-        ctx.stroke();
-
-        const tmx = (controlPoints.topLeft.x + controlPoints.topRight.x) / 2;
-        const tmy = (controlPoints.topLeft.y + controlPoints.topRight.y) / 2;
-        ctx.beginPath();
-        ctx.moveTo(tmx, tmy);
-        ctx.lineTo(controlPoints.rotation.x, controlPoints.rotation.y);
-        ctx.stroke();
-
-        const drawPt = (x, y, active, txt) => {
-            ctx.fillStyle = active ? '#FF4400' : '#00AAFF';
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, CONTROL_POINT_RADIUS, 0, Math.PI * 2);
-            ctx.fill(); ctx.stroke();
-            ctx.font = 'bold 12px Arial';
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 3;
-            ctx.strokeText(txt, x + 12, y + 4);
-            ctx.fillText(txt, x + 12, y + 4);
-        };
-        for (const p of ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'])
-            drawPt(controlPoints[p].x, controlPoints[p].y, activeControlPoint === p, '变形');
-        drawPt(controlPoints.rotation.x, controlPoints.rotation.y, activeControlPoint === 'rotation', '旋转');
-    }
-
-    // 控件联动（连接滑块/输入框和旗帜变量）
     function syncScale(val) {
         flagScale = Math.min(2, Math.max(0.5, parseFloat(val)));
         flagScaleSlider.value = flagScale;
         flagScaleInput.value = flagScale.toFixed(1);
         drawFlag();
     }
+    
     function syncRotation(val) {
         flagRotation = (parseFloat(val) % 360 + 360) % 360;
         flagRotationSlider.value = flagRotation;
         flagRotationInput.value = flagRotation.toFixed(0);
         drawFlag();
     }
+    
     flagScaleSlider.oninput = e => syncScale(e.target.value);
     flagScaleInput.onchange = e => syncScale(e.target.value);
     flagRotationSlider.oninput = e => syncRotation(e.target.value);
@@ -250,13 +173,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         syncScale(1); syncRotation(0);
     };
 
-    // 鼠标交互：实现 PS 风格的拖动/变形
     imageCanvas.addEventListener('mousedown', e => {
         if (!originalImage) return;
         const rect = imageCanvas.getBoundingClientRect();
         const x = e.clientX - rect.left, y = e.clientY - rect.top;
         activeControlPoint = null;
-        // 检查是否点击了控制点
         for (const k in controlPoints) {
             const dx = x - controlPoints[k].x, dy = y - controlPoints[k].y;
             if (Math.sqrt(dx * dx + dy * dy) < CONTROL_POINT_RADIUS * 2) {
@@ -269,12 +190,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
         }
-        // 检查是否点击了旗帜区域（用于移动）
         const p = previewToProcess(x, y);
         const cx = flagRect.x + flagRect.width / 2, cy = flagRect.y + flagRect.height / 2;
         const ang = -flagRotation * Math.PI / 180;
         const dx = p.x - cx, dy = p.y - cy;
-        // 反向旋转坐标点以检查是否在旋转前的矩形内
         const rx = cx + dx * Math.cos(ang) - dy * Math.sin(ang);
         const ry = cy + dx * Math.sin(ang) + dy * Math.cos(ang);
         if (rx >= flagRect.x && rx <= flagRect.x + flagRect.width && ry >= flagRect.y && ry <= flagRect.y + flagRect.height) {
@@ -296,25 +215,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             const ratioX = nowDistX / startDistX || 1;
             const ratioY = nowDistY / startDistY || 1;
             if (activeControlPoint === 'rotation') {
-                // 旋转逻辑
                 const startA = Math.atan2(s.y - cy, s.x - cx);
                 const nowA = Math.atan2(c.y - cy, c.x - cx);
-                // 更新旋转角度，并同步滑块
                 syncRotation(startRotation + (nowA - startA) * 180 / Math.PI);
             } else {
-                // 缩放/非等比变形逻辑
                 if (e.shiftKey) {
-                    // 按住 Shift 键进行等比缩放
                     syncScale(startScale * Math.max(ratioX, ratioY));
                 } else {
-                    // 非等比拉伸
                     flagStretch.x = Math.min(2, Math.max(0.5, startStretch.x * ratioX));
                     flagStretch.y = Math.min(2, Math.max(0.5, startStretch.y * ratioY));
                     drawFlag();
                 }
             }
         } else if (isDragging) {
-            // 拖动逻辑
             const deltaX = x - lastMouse.x;
             const deltaY = y - lastMouse.y;
             const t = getPreviewTransform();
@@ -324,6 +237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             drawFlag();
         }
     });
+    
     window.addEventListener('mouseup', () => { isDragging = false; isTransforming = false; activeControlPoint = null; });
     imageCanvas.addEventListener('mouseleave', () => { isDragging = false; isTransforming = false; activeControlPoint = null; });
 
@@ -338,9 +252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     downloadBtn.addEventListener('click', async () => {
         if (!originalImage) return;
         
-        // 使用Rust处理图片
         try {
-            // 获取原始图像数据
             const canvas = document.createElement('canvas');
             canvas.width = originalImage.width;
             canvas.height = originalImage.height;
@@ -348,7 +260,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             ctx.drawImage(originalImage, 0, 0);
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
-            // 获取旗帜图像数据
             const flagCanvas = document.createElement('canvas');
             flagCanvas.width = flagImg.width;
             flagCanvas.height = flagImg.height;
@@ -356,7 +267,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             flagCtx.drawImage(flagImg, 0, 0);
             const flagImageData = flagCtx.getImageData(0, 0, flagCanvas.width, flagCanvas.height);
             
-            // 更新配置
             flagConfig.scale = flagScale;
             flagConfig.rotation = flagRotation;
             flagConfig.offset_x = flagOffset.x;
@@ -364,14 +274,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             flagConfig.stretch_x = flagStretch.x;
             flagConfig.stretch_y = flagStretch.y;
             
-            // 处理图像
             const result = processor.process_avatar(
                 new Uint8Array(imageData.data),
                 new Uint8Array(flagImageData.data),
                 flagConfig
             );
             
-            // 创建下载链接
             const blob = new Blob([result], { type: 'image/png' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -381,16 +289,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Error processing image:', error);
-            // 如果Rust处理失败，回退到canvas处理
-            const dataURL = processCanvas.toDataURL('image/png');
-            const a = document.createElement('a');
-            a.href = dataURL;
-            a.download = (originalFileName || 'avatar') + '_with_flag.png';
-            a.click();
         }
     });
 
-    // --- 动态获取贡献者信息 ---
     function fetchContributors() {
         const repo = 'bghtnya/TransFlag_Avatar_Tool';
         const url = `https://api.github.com/repos/${repo}/contributors`;
@@ -399,13 +300,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         fetch(url)
             .then(response => {
                 if (!response.ok) {
-                    // 如果 API 调用失败（例如达到速率限制），返回错误
                     throw new Error(`GitHub API error: ${response.statusText}`);
                 }
                 return response.json();
             })
             .then(contributors => {
-                // 过滤掉 GitHub Actions 或其他自动化机器人
                 const humanContributors = contributors.filter(c => c.type === 'User');
                 
                 if (humanContributors.length === 0) {
@@ -433,6 +332,5 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
     }
 
-    // 在页面加载完毕后立即调用
     fetchContributors();
 });

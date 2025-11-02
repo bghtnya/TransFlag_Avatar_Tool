@@ -170,6 +170,59 @@ impl AvatarProcessor {
             }
         }
     }
+
+    #[wasm_bindgen]
+    pub fn create_preview_data(&self, avatar_data: &[u8], flag_data: &[u8], 
+                              canvas_width: u32, canvas_height: u32,
+                              config: &FlagConfig) -> Result<Vec<u8>, JsValue> {
+        let avatar_img = image::load_from_memory(avatar_data)
+            .map_err(|e| JsValue::from_str(&format!("Failed to load avatar image: {:?}", e)))?;
+        
+        let flag_img = image::load_from_memory(flag_data)
+            .map_err(|e| JsValue::from_str(&format!("Failed to load flag image: {:?}", e)))?;
+
+        let mut avatar_rgba = avatar_img.to_rgba8();
+        let flag_rgba = flag_img.to_rgba8();
+
+        let base_size = (avatar_rgba.width().min(avatar_rgba.height()) as f64 * 0.9) as u32;
+        let flag_width = (base_size as f64 * config.scale * config.stretch_x) as u32;
+        let flag_height = ((flag_rgba.height() as f64 / flag_rgba.width() as f64) * base_size as f64 * config.scale * config.stretch_y) as u32;
+
+        let resized_flag = image::imageops::resize(
+            &flag_rgba,
+            flag_width,
+            flag_height,
+            image::imageops::FilterType::Lanczos3,
+        );
+
+        let x = (avatar_rgba.width() as i32 - flag_width as i32) + config.offset_x as i32;
+        let y = (avatar_rgba.height() as i32 - flag_height as i32) + config.offset_y as i32;
+
+        self.overlay_image_with_rotation(&mut avatar_rgba, &resized_flag, x, y, config.rotation);
+
+        let scale_x = canvas_width as f64 / avatar_rgba.width() as f64;
+        let scale_y = canvas_height as f64 / avatar_rgba.height() as f64;
+        let scale = scale_x.min(scale_y);
+
+        let scaled_width = (avatar_rgba.width() as f64 * scale) as u32;
+        let scaled_height = (avatar_rgba.height() as f64 * scale) as u32;
+
+        let scaled_img = image::imageops::resize(
+            &avatar_rgba,
+            scaled_width,
+            scaled_height,
+            image::imageops::FilterType::Lanczos3,
+        );
+
+        let mut canvas_img = image::RgbaImage::from_pixel(canvas_width, canvas_height, image::Rgba([0, 0, 0, 0]));
+        
+        let offset_x = (canvas_width - scaled_width) / 2;
+        let offset_y = (canvas_height - scaled_height) / 2;
+        
+        image::imageops::replace(&mut canvas_img, &scaled_img, offset_x, offset_y);
+
+        Ok(canvas_img.into_raw())
+    }
 }
 
 #[wasm_bindgen]
