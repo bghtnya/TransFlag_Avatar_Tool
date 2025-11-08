@@ -15,6 +15,8 @@
 
 ## 🔄 更新内容
 
+- 重大更新喵！ 🥳 现在支持了很多新旗帜，支持更多位置，并为推特圆形头像添加了底部支持！当然因为可以编辑修改，在顶部、左上角、左下角都行，可以随意调整！
+- 把三件套（鱼板跨旗模板、脚本、样式）集合为单个 HTML 文件，无需额外文件
 - 集成了 <https://transflag.luoxue.cc/> 的推特圆形头像跨旗生成功能  
 - 原仓库：<https://github.com/luoxue3943/trans-avatar-flag-adder/tree/v0.1.0>
 
@@ -48,9 +50,7 @@
 ## 📂 项目结构
 
 - `index.html`：页面结构与按钮
-- `style.css`：样式与布局
-- `script.js`：上传、预览、叠加与下载逻辑
-- `鱼板跨旗模板.png`：旗帜模板
+- `res`：旗帜模板和图片资源信息
 
 ---
 
@@ -58,9 +58,6 @@
 
 - 支持 JPEG、PNG、WebP 等常见格式  
 - 预览画布为 300×300，仅用于展示；下载将使用原始尺寸绘制  
-- 可在 `script.js` 中修改以下参数：
-  - `FLAG_SIZE_RATIO` — 旗帜相对宽度比例（默认 `0.9`）  
-  - `FLAG_IMAGE_PATH` — 模板路径  
 
 ---
 
@@ -73,6 +70,8 @@
 - 贡献者：<https://github.com/bghtnya/TransFlag_Avatar_Tool/graphs/contributors>  
 - 网站：<https://bghtnya.github.io/TransFlag_Avatar_Tool/>
 
+- 感谢 谷歌 gemini 给出的重大帮助 (x) 
+- 也感谢另外两位项目贡献者！
 ---
 
 ## ⭐ 仓库 Star 曲线
