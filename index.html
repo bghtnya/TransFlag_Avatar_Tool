@@ -5,7 +5,359 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>头像鱼板跨旗添加工具 🍥🏳️‍⚧️</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        /* --- 上传区域 --- */
+        .upload-section {
+            margin-bottom: 30px;
+            text-align: center;
+            padding: 25px;
+            border: 3px dashed #a0a0a0;
+            border-radius: 12px;
+            transition: all 0.3s;
+            background-color: #f9f9f9;
+        }
+
+        .upload-section.drag-over {
+            border-color: #007bff;
+            background-color: #e6f7ff;
+        }
+
+        #avatarUpload {
+            display: none;
+        }
+
+        .upload-btn {
+            display: inline-block;
+            padding: 12px 25px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .upload-btn:hover {
+            background-color: #45a049;
+            transform: translateY(-1px);
+        }
+
+        .drag-tip {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* ---------------------------------------- */
+        /* ✨ 旗帜选择区域 (图片画廊样式) ✨ */
+        .flag-selection-area {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            text-align: center;
+        }
+
+        .flag-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .flag-item {
+            cursor: pointer;
+            border: 3px solid transparent;
+            border-radius: 6px;
+            overflow: hidden;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            background-color: white;
+            text-align: center;
+            padding: 5px;
+            flex: 0 0 auto;
+            /* 不放大不缩小 */
+            width: 130px;
+            /* 减小宽度以容纳更多 */
+        }
+
+        .flag-item.selected {
+            border-color: #007bff;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.8);
+            background-color: #e6f7ff;
+        }
+
+        .flag-item:hover:not(.selected) {
+            border-color: #a0a0a0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .flag-preview-img {
+            width: 120px;
+            /* 调整：预览缩小 */
+            height: 60px;
+            /* 调整：保持大致 2:1 比例 */
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .flag-name {
+            font-size: 13px;
+            margin-top: 5px;
+            color: #555;
+            word-break: keep-all;
+        }
+
+        /* ---------------------------------------- */
+
+        /* 预览区域布局更新：三列，且略微缩小 */
+        .preview-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            gap: 20px;
+        }
+
+        .preview-item {
+            text-align: center;
+            flex: 1 1 30%;
+            min-width: 250px;
+            max-width: 300px;
+            padding: 10px;
+        }
+
+        /* ✨ 占位符和 Canvas 容器样式 ✨ */
+        .canvas-wrapper {
+            width: 300px;
+            height: 300px;
+            margin: 0 auto;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #eee;
+            position: relative;
+            /* 确保 canvas 容器是定位参考点 */
+        }
+
+        .canvas-wrapper:not([data-has-image="true"]) {
+            border: 4px dashed #a0a0a0;
+            background-color: #e0e0e0;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 圆形预览的特殊容器 */
+        #circularWrapper {
+            border-radius: 50%;
+        }
+
+        #circularCanvas {
+            /* 注意：圆形裁剪在 JS 中实现，这里只设置容器圆角 */
+            border-radius: 50%;
+            border: 2px solid #007bff;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 让可交互的 Canvas 具有可点击光标 */
+        #imageCanvas,
+        #circularCanvas {
+            cursor: pointer;
+        }
+
+        .flag-preview {
+            margin-top: 20px;
+        }
+
+        /* ✨ 控制台美化 ✨ */
+        .flag-controls {
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+
+        .control-group label {
+            font-weight: bold;
+            color: #555;
+            min-width: 50px;
+        }
+
+        .control-group input[type="range"] {
+            flex-grow: 1;
+            margin: 0 10px;
+        }
+
+        .control-group input[type="number"] {
+            width: 70px !important;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .control-group button {
+            padding: 8px 15px;
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .control-group button:hover {
+            background-color: #e68900;
+        }
+
+        /* 下载按钮样式 (保持不变) */
+        #downloadBtn {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.2em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: block;
+            margin: 30px auto;
+            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
+            opacity: 1;
+        }
+
+        #downloadBtn:hover:not(:disabled) {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 123, 255, 0.4);
+        }
+
+        #downloadBtn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* --- 底部和贡献者信息优化 (采纳用户建议) --- */
+
+        /* 主页脚样式，确保居中和与页面主体分隔 */
+        .main-footer {
+            margin-top: 40px;
+            padding: 20px 0;
+            text-align: center;
+            border-top: 1px solid #ddd; /* 添加顶部边框分隔 */
+            color: #666; /* 统一颜色 */
+            font-size: 14px;
+        }
+
+        /* 贡献者容器样式 */
+        #contributorsContainer {
+            margin-bottom: 15px;
+        }
+
+        /* 修改：贡献者列表样式，保持居中对齐 */
+        .contributor-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px; /* 增加间隔 */
+        }
+
+        /* 贡献者项目样式 */
+        .contributor-item {
+            display: inline-flex;
+            align-items: center;
+            font-weight: bold;
+            padding: 5px 10px; /* 增加点击区域和视觉分隔 */
+            border-radius: 15px;
+            background-color: #f0f0f0;
+            transition: background-color 0.3s;
+        }
+
+        .contributor-item:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* 贡献者头像样式 */
+        .contributor-avatar {
+            width: 28px; /* 略微增大 */
+            height: 28px; /* 略微增大 */
+            border-radius: 50%;
+            margin-right: 8px; /* 增大右侧间距 */
+            border: 2px solid #4CAF50; /* 添加品牌色边框 */
+            vertical-align: middle;
+        }
+
+        /* 贡献者链接样式 */
+        .contributor-login {
+            color: #333; /* 链接颜色改为深色，更易读 */
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .contributor-login:hover {
+            color: #4CAF50; /* 鼠标悬停时显示品牌色 */
+            text-decoration: underline;
+        }
+
+        /* 项目仓库链接样式 */
+        .main-footer p a {
+            color: #4CAF50;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .main-footer p a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 
 <body>
@@ -19,72 +371,948 @@
             <p class="drag-tip">或将图片拖放到此处</p>
         </div>
 
+        <div class="flag-selection-area">
+            <h2>选择旗帜模板（点击图片选择）</h2>
+            <div id="flagGallery" class="flag-gallery">
+            </div>
+        </div>
         <div class="preview-container">
             <div class="preview-item">
                 <h3>原始头像</h3>
-                <div class="canvas-wrapper">
+                <div class="canvas-wrapper" id="originalWrapper">
                     <canvas id="originalCanvas"></canvas>
                 </div>
+                <div class="flag-controls-info">
+                    <p style="font-size: 14px; color: #555;">点击右侧预览区进行旗帜的编辑</p>
+                </div>
             </div>
+
             <div class="preview-item">
-                <h3>添加鱼板跨旗效果</h3>
-                <div class="canvas-wrapper">
+                <h3>预览处理头像-方</h3>
+                <div class="canvas-wrapper" id="imageWrapper">
                     <canvas id="imageCanvas"></canvas>
                 </div>
-
                 <div class="flag-preview"></div>
             </div>
-        </div>
 
-        <button id="downloadBtn">下载处理后的头像</button>
-
-        <div class="example-container">
-            <h3>示例图片</h3>
-            <div class="example-row">
-                <div class="example-col">
-                    <p>您的头像:</p>
-                    <div class="example-avatar">
-                        <img src="./res/头像原始.png" alt="示例头像">
-                    </div>
-                </div>
-                <div class="example-col">
-                    <p>添加鱼板跨旗效果:</p>
-                    <div class="example-flag">
-                        <img src="./res/头像处理.png" alt="鱼板跨旗效果">
-                    </div>
+            <div class="preview-item">
+                <h3>预览处理头像-圆</h3>
+                <div class="canvas-wrapper" id="circularWrapper" style="border-radius: 50%;">
+                    <canvas id="circularCanvas"></canvas>
                 </div>
             </div>
         </div>
 
+        <button id="downloadBtn" disabled>下载处理后的头像</button>
 
 
-        <div class="tools-integration">
-            <h3>试试其他工具</h3>
-            <div class="tools-buttons">
-                <a href="https://transflag.luoxue.cc/" class="tool-btn" target="_blank">
-                    <span class="tool-icon">🏳️‍⚧️</span>
-                    <div class="tool-info">
-                        <h4>头像添加鱼板跨旗工具🏳️‍⚧️🍥（圆形支持推特）</h4>
-                        <p>by luoxue3943</p>
-                    </div>
-                </a>
-            </div>
-        </div>
+        <footer class="main-footer">
+            <div id="contributorsContainer">
+                </div>
+            <p>项目仓库：<a href="https://github.com/bghtnya/TransFlag_Avatar_Tool/" target="_blank">TransFlag_Avatar_Tool</a>
+            </p>
+        </footer>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                // --- 旗帜配置表 ---
+                const FLAG_TEMPLATES_ARRAY = [
+                    { key: 'bottom_trans', name: '底部鱼板跨旗', path: './res/底部鱼板跨旗模板.png', defaultScale: 1.2 },
+                    { key: 'bottom_transles', name: '底部跨 Les 鱼板', path: './res/底部transles鱼板.png', defaultScale: 1.2 },
+                    { key: 'bottom_les', name: '底部 Les 鱼板', path: './res/底部les鱼板.png', defaultScale: 1.2 },
+                    { key: 'right_bottom_trans', name: '右下鱼板跨旗', path: './res/右下鱼板跨旗模板.png' },
+                    { key: 'right_bottom_les', name: '右下 Les 鱼板', path: './res/右下les鱼板.png' },
+                    { key: 'right_bottom_transles', name: '右下跨 Les 鱼板', path: './res/右下transles鱼板.png' },
+                ];
+
+                const FLAG_TEMPLATES = FLAG_TEMPLATES_ARRAY.reduce((acc, template) => {
+                    acc[template.key] = template;
+                    return acc;
+                }, {});
+
+                let currentFlagKey = FLAG_TEMPLATES_ARRAY[0] ? FLAG_TEMPLATES_ARRAY[0].key : null;
+
+
+                const avatarUpload = document.getElementById('avatarUpload');
+                const originalCanvas = document.getElementById('originalCanvas');
+                const imageCanvas = document.getElementById('imageCanvas');
+                const circularCanvas = document.getElementById('circularCanvas');
+
+                const originalWrapper = document.getElementById('originalWrapper');
+                const imageWrapper = document.getElementById('imageWrapper');
+                const circularWrapper = document.getElementById('circularWrapper');
+
+                const downloadBtn = document.getElementById('downloadBtn');
+                const dropArea = document.getElementById('dropArea');
+                const fileName = document.getElementById('fileName');
+                const flagGallery = document.getElementById('flagGallery');
+
+                const originalCtx = originalCanvas.getContext('2d'); // 用于交互和控制点绘制
+                const imageCtx = imageCanvas.getContext('2d'); // 用于最终方形预览
+                const circularCtx = circularCanvas.getContext('2d'); // 用于最终圆形预览
+
+                const FLAG_SIZE_RATIO = 0.9;
+                const CANVAS_SIZE = 300;
+                imageCanvas.width = originalCanvas.width = circularCanvas.width = CANVAS_SIZE;
+                imageCanvas.height = originalCanvas.height = circularCanvas.height = CANVAS_SIZE;
+
+                // 离屏 Canvas，用于计算和生成最终结果 (原始分辨率)
+                const processCanvas = document.createElement('canvas');
+                const processCtx = processCanvas.getContext('2d');
+
+                let originalImage = null;
+                let originalFileName = '';
+                let flagOffset = { x: 0, y: 0 };
+                let flagScale = 1.0;
+                let flagRotation = 0;
+                let flagStretch = { x: 1.0, y: 1.0 }; // 暂时不用，但保留
+
+                // --- 状态管理 (用于撤销/重做和拖动结束保存) ---
+                let historyStack = [];
+                let historyIndex = -1;
+                const MAX_HISTORY = 20;
+                let saveTimeout = null; // 用于限制频繁保存状态
+
+                function saveState(initialLoad = false) {
+                    const state = {
+                        flagOffset: { ...flagOffset },
+                        flagScale: flagScale,
+                        flagRotation: flagRotation,
+                        currentFlagKey: currentFlagKey,
+                    };
+
+                    // 清理索引之后的状态 (重做状态)
+                    if (historyIndex < historyStack.length - 1) {
+                        historyStack = historyStack.slice(0, historyIndex + 1);
+                    }
+
+                    // 限制历史记录大小
+                    if (historyStack.length >= MAX_HISTORY) {
+                        historyStack.shift(); // 移除最旧的
+                        historyIndex--;
+                    }
+
+                    // 检查是否与最后一个状态相同，如果是则不保存 (避免频繁记录)
+                    if (!initialLoad && historyStack.length > 0) {
+                        const lastState = historyStack[historyStack.length - 1];
+                        if (Math.abs(lastState.flagScale - state.flagScale) < 0.01 &&
+                            Math.abs(lastState.flagRotation - state.flagRotation) < 1 &&
+                            Math.abs(lastState.flagOffset.x - state.flagOffset.x) < 1 &&
+                            Math.abs(lastState.flagOffset.y - state.flagOffset.y) < 1) {
+                            return;
+                        }
+                    }
+
+                    historyStack.push(state);
+                    historyIndex = historyStack.length - 1;
+                    // console.log(`Saved state: ${historyIndex}/${historyStack.length - 1}`);
+                }
+
+                // 延迟保存状态，用于拖动/滑块操作
+                function deferredSaveState() {
+                    clearTimeout(saveTimeout);
+                    saveTimeout = setTimeout(saveState, 300); // 300ms 后保存
+                }
+                // --- 状态管理结束 ---
+
+                // --- 拖动/变形相关的变量和逻辑 ---
+                let isDragging = false;
+                let isTransforming = false;
+                let activeControlPoint = null; // 'center' for drag, 'scale' for scale/rotate
+                let lastMouse = { x: 0, y: 0 };
+                let dragStart = { x: 0, y: 0 };
+                let startScale = 1.0;
+                let startRotation = 0;
+
+                const CONTROL_POINT_RADIUS = 8;
+                const ROTATION_HANDLE_LENGTH = 30;
+                let flagRect = {}; // 存储旗帜在 processCanvas 坐标系中的信息
+                let controlPoints = {}; // 存储控制点在 originalCanvas 坐标系中的信息 (注意：交互时需要转换到当前 Canvas 坐标)
+
+                const flagImg = new Image();
+                flagImg.crossOrigin = "Anonymous";
+
+                // 控件 UI：动态创建并插入到 .flag-preview 容器中 (保持不变)
+                const controls = document.createElement('div');
+                controls.className = 'flag-controls';
+                controls.innerHTML = `
+					<div class="control-group">
+						<label>缩放：</label>
+						<input type="range" id="flagScaleSlider" min="0.5" max="3.0" step="0.1" value="1.0">
+						<input type="number" id="flagScaleInput" min="0.5" max="3.0" step="0.1" value="1.0">
+					</div>
+					<div class="control-group">
+						<label>旋转：</label>
+						<input type="range" id="flagRotationSlider" min="0" max="360" step="1" value="0">
+						<input type="number" id="flagRotationInput" min="0" max="360" step="1" value="0">
+					</div>
+					<div class="control-group" style="justify-content: center; margin-top: 10px;">
+						<button id="resetFlagBtn">重置位置/缩放/旋转</button>
+					</div>
+				`;
+                const previewArea = document.querySelector('.flag-preview');
+                if (previewArea) previewArea.appendChild(controls);
+
+                const flagScaleSlider = document.getElementById('flagScaleSlider');
+                const flagRotationSlider = document.getElementById('flagRotationSlider');
+                const flagScaleInput = document.getElementById('flagScaleInput');
+                const flagRotationInput = document.getElementById('flagRotationInput');
+                const resetFlagBtn = document.getElementById('resetFlagBtn');
+
+                // --- 同步函数 ---
+                function syncScale(scale, isInput = true) {
+                    flagScale = parseFloat(scale);
+                    if (isNaN(flagScale)) return;
+                    flagScale = Math.max(0.5, Math.min(3.0, flagScale)); // 适当放宽缩放范围
+                    flagScale = Math.round(flagScale * 100) / 100; // 限制两位小数
+
+                    if (isInput) {
+                        flagScaleSlider.value = flagScale;
+                        flagScaleInput.value = flagScale.toFixed(2);
+                    }
+                }
+
+                function syncRotation(rotation, isInput = true) {
+                    flagRotation = parseInt(rotation);
+                    if (isNaN(flagRotation)) return;
+                    flagRotation = flagRotation % 360; // 限制 0-360 度
+                    if (flagRotation < 0) flagRotation += 360;
+
+                    if (isInput) {
+                        flagRotationSlider.value = flagRotation;
+                        flagRotationInput.value = flagRotation;
+                    }
+                }
+                // --- 同步函数结束 ---
+
+                // --- 控件事件监听器 (保持不变) ---
+                flagScaleSlider.addEventListener('input', () => {
+                    syncScale(flagScaleSlider.value, true);
+                    drawFlag();
+                    deferredSaveState();
+                });
+
+                flagScaleInput.addEventListener('input', () => {
+                    syncScale(flagScaleInput.value, true);
+                    drawFlag();
+                    deferredSaveState();
+                });
+
+                flagRotationSlider.addEventListener('input', () => {
+                    syncRotation(flagRotationSlider.value, true);
+                    drawFlag();
+                    deferredSaveState();
+                });
+
+                flagRotationInput.addEventListener('input', () => {
+                    syncRotation(flagRotationInput.value, true);
+                    drawFlag();
+                    deferredSaveState();
+                });
+
+                flagRotationInput.addEventListener('keydown', (e) => {
+                    if (!originalImage || e.target !== flagRotationInput) return;
+
+                    if ((e.ctrlKey || e.metaKey || e.shiftKey) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                        e.preventDefault();
+                        const step = 45;
+                        let newValue = parseInt(flagRotationInput.value) || 0;
+
+                        if (e.key === 'ArrowUp') {
+                            newValue += step;
+                        } else {
+                            newValue -= step;
+                        }
+                        syncRotation(newValue, true);
+                        drawFlag();
+                        saveState();
+                    }
+                });
+
+                resetFlagBtn.addEventListener('click', () => {
+                    const currentTemplate = FLAG_TEMPLATES[currentFlagKey];
+                    resetFlagTransform(currentTemplate.defaultScale || 1.0);
+                });
+                // --- 控件事件监听器结束 ---
+
+
+                // --- 旗帜图片画廊渲染和选择逻辑 (保持不变) ---
+                function renderFlagGallery() {
+                    flagGallery.innerHTML = '';
+                    FLAG_TEMPLATES_ARRAY.forEach(template => {
+                        const item = document.createElement('div');
+                        item.className = 'flag-item';
+                        item.dataset.key = template.key;
+
+                        if (template.key === currentFlagKey) {
+                            item.classList.add('selected');
+                        }
+                        item.innerHTML = `
+							<img src="${template.path}" alt="${template.name}" class="flag-preview-img">
+							<p class="flag-name">${template.name}</p>
+						`;
+                        item.addEventListener('click', () => handleFlagSelection(template.key));
+                        flagGallery.appendChild(item);
+                    });
+                }
+
+                function handleFlagSelection(key) {
+                    if (key === currentFlagKey) return;
+
+                    currentFlagKey = key;
+                    const template = FLAG_TEMPLATES[currentFlagKey];
+                    const newPath = template.path;
+                    const newScale = template.defaultScale || 1.0;
+
+                    document.querySelectorAll('.flag-item').forEach(item => {
+                        item.classList.remove('selected');
+                        if (item.dataset.key === key) {
+                            item.classList.add('selected');
+                        }
+                    });
+
+                    flagImg.src = newPath;
+                    resetFlagTransform(newScale);
+                    saveState(); // 切换旗帜也保存状态
+                }
+
+                function initFlagSelector() {
+                    renderFlagGallery();
+
+                    if (!currentFlagKey) return;
+
+                    flagImg.onload = () => {
+                        if (originalImage) {
+                            drawFlag();
+                            saveState(true); // 初始加载图片后保存初始状态
+                        }
+                    };
+
+                    const initialTemplate = FLAG_TEMPLATES[currentFlagKey];
+                    flagImg.src = initialTemplate.path;
+                    resetFlagTransform(initialTemplate.defaultScale || 1.0, false);
+                }
+
+                function resetFlagTransform(scale = 1.0, shouldSave = true) {
+                    flagOffset = { x: 0, y: 0 };
+                    flagRotation = 0;
+                    flagStretch = { x: 1, y: 1 };
+                    syncScale(scale, true); // 确保同步到 UI
+                    syncRotation(0, true); // 确保同步到 UI
+                    drawFlag();
+                    if (shouldSave) saveState();
+                }
+                // ----------------------------------------
+
+                // --- 核心绘图和交互逻辑 ---
+
+                function getPreviewTransform() {
+                    if (!originalImage) return { scale: 1, offsetX: 0, offsetY: 0 };
+                    // 计算头像在 300x300 canvas 中的缩放比例和偏移量 (保持纵横比)
+                    const scale = Math.min(CANVAS_SIZE / originalImage.width, CANVAS_SIZE / originalImage.height);
+                    const offsetX = (CANVAS_SIZE - originalImage.width * scale) / 2;
+                    const offsetY = (CANVAS_SIZE - originalImage.height * scale) / 2;
+                    return { scale, offsetX, offsetY };
+                }
+
+                // 将 Preview Canvas 坐标 (300x300) 转换为 Process Canvas 坐标 (原始图片分辨率)
+                function previewToProcess(x, y) {
+                    const t = getPreviewTransform();
+                    return { x: (x - t.offsetX) / t.scale, y: (y - t.offsetY) / t.scale };
+                }
+
+                // 将 Process Canvas 坐标 (原始图片分辨率) 转换为 Preview Canvas 坐标 (300x300)
+                function processToPreview(x, y) {
+                    const t = getPreviewTransform();
+                    return { x: x * t.scale + t.offsetX, y: y * t.scale + t.offsetY };
+                }
+
+                function updateWrappers(hasImage) {
+                    const wrappers = [originalWrapper, imageWrapper, circularWrapper];
+                    wrappers.forEach(w => {
+                        if (w) w.setAttribute('data-has-image', hasImage ? 'true' : 'false');
+                    });
+                }
+
+                function processImageFile(file) {
+                    if (!file) return;
+                    fileName.textContent = file.name;
+                    originalFileName = file.name.replace(/\.[^/.]+$/, "");
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        const img = new Image();
+                        img.onload = () => {
+                            originalImage = img;
+                            processCanvas.width = img.width;
+                            processCanvas.height = img.height;
+                            updateWrappers(true);
+                            // 重置历史记录，并保存初始状态
+                            historyStack = [];
+                            historyIndex = -1;
+                            const initialTemplate = FLAG_TEMPLATES[currentFlagKey];
+                            resetFlagTransform(initialTemplate.defaultScale || 1.0, false);
+                            drawFlag();
+                            downloadBtn.disabled = false;
+                            saveState(true);
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+
+
+                function drawCircularPreview() {
+                    if (!originalImage) return;
+
+                    circularCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+                    circularCtx.save();
+                    circularCtx.beginPath();
+                    circularCtx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE / 2, 0, Math.PI * 2);
+                    circularCtx.closePath();
+                    circularCtx.clip();
+
+                    // 使用 processCanvas 的内容作为圆形预览的来源
+                    const t = getPreviewTransform();
+                    circularCtx.drawImage(processCanvas, 0, 0, processCanvas.width, processCanvas.height, t.offsetX, t.offsetY, originalImage.width * t.scale, originalImage.height * t.scale);
+
+                    circularCtx.restore(); // 恢复剪切路径前的状态
+                    circularCtx.beginPath();
+                    circularCtx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE / 2 - 1, 0, Math.PI * 2);
+                    circularCtx.strokeStyle = '#007bff';
+                    circularCtx.lineWidth = 2;
+                    circularCtx.stroke();
+                }
+
+
+                // 核心绘图函数
+                function drawFlag() {
+                    if (!originalImage || !flagImg.complete || flagImg.naturalWidth === 0) {
+                        originalCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                        imageCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                        circularCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                        return;
+                    }
+
+                    const base = Math.min(originalImage.width, originalImage.height);
+                    const flagBaseSize = base * FLAG_SIZE_RATIO;
+                    const flagWidth = flagBaseSize * flagScale * flagStretch.x;
+                    const flagHeight = (flagImg.height / flagImg.width) * flagBaseSize * flagScale * flagStretch.y;
+
+                    let defaultX, defaultY;
+                    const currentKey = currentFlagKey || '';
+
+                    // 计算默认的旗帜位置 (Process Canvas 坐标系)
+                    if (currentKey.startsWith('bottom')) {
+                        defaultX = (originalImage.width - flagWidth) / 2;
+                        defaultY = originalImage.height - flagHeight;
+                    } else if (currentKey.startsWith('right_bottom')) {
+                        defaultX = originalImage.width - flagWidth;
+                        defaultY = originalImage.height - flagHeight;
+                    } else {
+                        defaultX = (originalImage.width - flagWidth) / 2;
+                        defaultY = (originalImage.height - flagHeight) / 2;
+                    }
+
+                    // 最终旗帜位置 (Process Canvas 坐标系)
+                    const x = defaultX + flagOffset.x;
+                    const y = defaultY + flagOffset.y;
+
+                    // flagRect 存储在 Process Canvas 坐标系中的信息
+                    flagRect = { x, y, width: flagWidth, height: flagHeight, cx: x + flagWidth / 2, cy: y + flagHeight / 2 };
+
+                    // --- 1. 绘制到 Process Canvas (原始分辨率) ---
+                    processCtx.clearRect(0, 0, processCanvas.width, processCanvas.height);
+                    processCtx.drawImage(originalImage, 0, 0);
+
+                    processCtx.save();
+                    processCtx.translate(flagRect.cx, flagRect.cy);
+                    processCtx.rotate(flagRotation * Math.PI / 180);
+                    processCtx.drawImage(flagImg, -flagWidth / 2, -flagHeight / 2, flagWidth, flagHeight);
+                    processCtx.restore();
+
+                    // --- 2. 绘制到 Preview Canvas (300x300, 实时预览) ---
+                    updatePreviews();
+                }
+
+                // 更新所有 300x300 预览框
+                function updatePreviews() {
+                    if (!originalImage) return;
+
+                    const t = getPreviewTransform();
+
+                    // 绘制原始头像到 Original Canvas (只读区) - 保持原始头像不变
+                    originalCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                    originalCtx.drawImage(originalImage, 0, 0, originalImage.width, originalImage.height, t.offsetX, t.offsetY, originalImage.width * t.scale, originalImage.height * t.scale);
+
+
+                    // 绘制 Process Canvas (包含旗帜) 到 Image Canvas (处理头像-方, 可编辑区)
+                    imageCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                    imageCtx.drawImage(processCanvas, 0, 0, processCanvas.width, processCanvas.height, t.offsetX, t.offsetY, originalImage.width * t.scale, originalImage.height * t.scale);
+                    drawControls(imageCtx); // 在可编辑区绘制控制点
+
+                    // 绘制圆形预览 (处理头像-圆, 可编辑区)
+                    drawCircularPreview();
+                    drawControls(circularCtx); // 在可编辑区绘制控制点
+                }
+
+                // 绘制旗帜边框和控制点 (接受一个 ctx 参数)
+                function drawControls(ctx) {
+                    if (!originalImage || !flagImg.complete || flagImg.naturalWidth === 0) return;
+
+                    const t = getPreviewTransform();
+                    const scaleFactor = t.scale;
+
+                    // 计算 Process Canvas 坐标系中旗帜矩形的四个角 (相对于 Process Canvas 原点)
+                    const w = flagRect.width;
+                    const h = flagRect.height;
+                    const cx = flagRect.cx;
+                    const cy = flagRect.cy;
+                    const angle = flagRotation * Math.PI / 180;
+
+                    const cos = Math.cos(angle);
+                    const sin = Math.sin(angle);
+
+                    // 旋转后的四个角 (在 Process Canvas 坐标系中)
+                    const corners = [
+                        { x: -w / 2, y: -h / 2 },
+                        { x: w / 2, y: -h / 2 },
+                        { x: w / 2, y: h / 2 },
+                        { x: -w / 2, y: h / 2 }
+                    ].map(p => {
+                        const rotatedX = p.x * cos - p.y * sin;
+                        const rotatedY = p.x * sin + p.y * cos;
+                        return { x: rotatedX + cx, y: rotatedY + cy };
+                    });
+
+                    // 旋转后的中点 (在 Process Canvas 坐标系中)
+                    const midTop = {
+                        x: cx + (0) * cos - (-h / 2) * sin,
+                        y: cy + (0) * sin + (-h / 2) * cos
+                    };
+
+                    // --- 绘制边框和旋转手柄 ---
+
+                    ctx.strokeStyle = activeControlPoint === 'center' ? 'red' : '#007bff';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+
+                    ctx.beginPath();
+                    let p = processToPreview(corners[0].x, corners[0].y);
+                    ctx.moveTo(p.x, p.y);
+                    for (let i = 1; i < corners.length; i++) {
+                        p = processToPreview(corners[i].x, corners[i].y);
+                        ctx.lineTo(p.x, p.y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.setLineDash([]); // 恢复实线
+
+                    // 绘制旋转手柄
+                    const midTopPreview = processToPreview(midTop.x, midTop.y);
+                    const rotationHandleEnd = {
+                        x: midTop.x + sin * ROTATION_HANDLE_LENGTH / scaleFactor, // 旋转手柄的终点 (Process)
+                        y: midTop.y - cos * ROTATION_HANDLE_LENGTH / scaleFactor
+                    };
+                    const rotationHandleEndPreview = processToPreview(rotationHandleEnd.x, rotationHandleEnd.y);
+
+                    ctx.beginPath();
+                    ctx.moveTo(midTopPreview.x, midTopPreview.y);
+                    ctx.lineTo(rotationHandleEndPreview.x, rotationHandleEndPreview.y);
+                    ctx.strokeStyle = activeControlPoint === 'rotate' ? 'red' : '#ff9800';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+
+                    // --- 绘制控制点 (拖动和缩放) ---
+
+                    // 拖动中心点 (Center Handle)
+                    const centerPreview = processToPreview(cx, cy);
+                    controlPoints.center = centerPreview;
+                    ctx.beginPath();
+                    ctx.arc(centerPreview.x, centerPreview.y, CONTROL_POINT_RADIUS, 0, Math.PI * 2);
+                    ctx.fillStyle = activeControlPoint === 'center' ? 'red' : 'rgba(0, 123, 255, 0.8)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // 缩放/旋转控制点 (Scale/Rotate Handle)
+                    const scaleHandlePos = processToPreview(corners[1].x, corners[1].y); // 右上角作为缩放点
+                    const rotateHandlePos = rotationHandleEndPreview; // 旋转手柄终点作为旋转点
+
+                    controlPoints.scale = scaleHandlePos;
+                    controlPoints.rotate = rotateHandlePos;
+
+                    // 绘制缩放点
+                    ctx.beginPath();
+                    ctx.arc(scaleHandlePos.x, scaleHandlePos.y, CONTROL_POINT_RADIUS, 0, Math.PI * 2);
+                    ctx.fillStyle = activeControlPoint === 'scale' ? 'red' : 'rgba(255, 0, 0, 0.9)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // 绘制旋转点
+                    ctx.beginPath();
+                    ctx.arc(rotateHandlePos.x, rotateHandlePos.y, CONTROL_POINT_RADIUS, 0, Math.PI * 2);
+                    ctx.fillStyle = activeControlPoint === 'rotate' ? 'red' : 'rgba(255, 152, 0, 0.9)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // 检查鼠标是否在控制点附近
+                function getControlPoint(x, y) {
+                    if (!controlPoints.center) return null;
+
+                    const points = [
+                        { key: 'scale', pos: controlPoints.scale },
+                        { key: 'rotate', pos: controlPoints.rotate },
+                    ];
+
+                    // 优先检查缩放/旋转点
+                    for (const p of points) {
+                        const dist = Math.hypot(x - p.pos.x, y - p.pos.y);
+                        if (dist <= CONTROL_POINT_RADIUS + 5) {
+                            return p.key;
+                        }
+                    }
+
+                    // 检查拖动点
+                    const distCenter = Math.hypot(x - controlPoints.center.x, y - controlPoints.center.y);
+                    if (distCenter <= CONTROL_POINT_RADIUS + 5) {
+                        return 'center';
+                    }
+
+                    // 检查是否在旗帜边框内 (近似矩形检查，简化处理)
+                    const t = getPreviewTransform();
+                    const flagPreview = {
+                        x: processToPreview(flagRect.x, flagRect.y).x,
+                        y: processToPreview(flagRect.y, flagRect.y).y,
+                        w: flagRect.width * t.scale,
+                        h: flagRect.height * t.scale,
+                    };
+
+                    // 简化矩形检查，忽略旋转，只检查是否在界内
+                    const isInsideFlag = x >= flagPreview.x - 10 && x <= flagPreview.x + flagPreview.w + 10 &&
+                        y >= flagPreview.y - 10 && y <= flagPreview.y + flagPreview.h + 10;
+                    
+                    if (isInsideFlag) {
+                        return 'flag_body';
+                    }
+
+
+                    return null;
+                }
+
+                // 鼠标按下事件
+                function handleMouseDown(e) {
+                    if (!originalImage) return;
+
+                    // 确保只在 imageCanvas 或 circularCanvas 上触发交互
+                    if (e.target !== imageCanvas && e.target !== circularCanvas) return;
+
+                    e.preventDefault();
+                    isDragging = true;
+                    lastMouse = { x: e.offsetX, y: e.offsetY };
+                    dragStart = { x: flagOffset.x, y: flagOffset.y };
+                    startScale = flagScale;
+                    startRotation = flagRotation;
+
+                    activeControlPoint = getControlPoint(e.offsetX, e.offsetY);
+
+                    if (activeControlPoint === 'center' || activeControlPoint === 'flag_body') {
+                        activeControlPoint = 'center'; // 将点击旗帜主体也视为拖动
+                        imageCanvas.style.cursor = 'move';
+                        circularCanvas.style.cursor = 'move';
+                    } else if (activeControlPoint === 'scale') {
+                        imageCanvas.style.cursor = 'nwse-resize';
+                        circularCanvas.style.cursor = 'nwse-resize';
+                        isTransforming = true;
+                    } else if (activeControlPoint === 'rotate') {
+                        imageCanvas.style.cursor = 'crosshair';
+                        circularCanvas.style.cursor = 'crosshair';
+                        isTransforming = true;
+                    } else {
+                        isDragging = false;
+                        isTransforming = false;
+                        imageCanvas.style.cursor = 'pointer';
+                        circularCanvas.style.cursor = 'pointer';
+                        return;
+                    }
+                    drawFlag(); // 绘制选中状态
+                }
+
+                // 鼠标移动事件
+                function handleMouseMove(e) {
+                    if (!originalImage) return;
+
+                    const currentMouse = { x: e.offsetX, y: e.offsetY };
+                    const t = getPreviewTransform();
+
+                    if (isDragging) {
+                        const dx = currentMouse.x - lastMouse.x;
+                        const dy = currentMouse.y - lastMouse.y;
+
+                        if (activeControlPoint === 'center') {
+                            // 拖动：将 Canvas 坐标系的增量转换到 Process Canvas 坐标系
+                            const deltaX_proc = dx / t.scale;
+                            const deltaY_proc = dy / t.scale;
+
+                            flagOffset.x += deltaX_proc;
+                            flagOffset.y += deltaY_proc;
+                            drawFlag();
+                            deferredSaveState(); // 延迟保存状态
+                        } else if (activeControlPoint === 'scale' || activeControlPoint === 'rotate') {
+                            // 缩放/旋转
+                            const cx = controlPoints.center.x;
+                            const cy = controlPoints.center.y;
+                            const currentAngle = Math.atan2(currentMouse.y - cy, currentMouse.x - cx);
+                            const lastAngle = Math.atan2(lastMouse.y - cy, lastMouse.x - cx);
+                            const angleDelta = currentAngle - lastAngle;
+
+                            const currentDist = Math.hypot(currentMouse.x - cx, currentMouse.y - cy);
+                            const lastDist = Math.hypot(lastMouse.x - cx, lastMouse.y - cy);
+                            const distRatio = currentDist / lastDist;
+
+                            if (activeControlPoint === 'rotate') {
+                                // 旋转：转换为度数
+                                flagRotation = (startRotation + angleDelta * 180 / Math.PI) % 360;
+                                syncRotation(flagRotation, true);
+                            }
+
+                            if (activeControlPoint === 'scale') {
+                                // 缩放：基于距离比
+                                flagScale = startScale * distRatio;
+                                syncScale(flagScale, true);
+                            }
+
+                            drawFlag();
+                            deferredSaveState(); // 延迟保存状态
+                        }
+
+                        lastMouse = currentMouse;
+                    } else {
+                        // 仅移动时更新光标
+                        const point = getControlPoint(currentMouse.x, currentMouse.y);
+                        if (e.target === imageCanvas || e.target === circularCanvas) {
+                            if (point === 'center' || point === 'flag_body') {
+                                e.target.style.cursor = 'move';
+                            } else if (point === 'scale') {
+                                e.target.style.cursor = 'nwse-resize';
+                            } else if (point === 'rotate') {
+                                e.target.style.cursor = 'crosshair';
+                            } else {
+                                e.target.style.cursor = 'pointer';
+                            }
+                        }
+                    }
+                }
+
+                // 鼠标抬起事件
+                function handleMouseUp(e) {
+                    if (isDragging) {
+                        isDragging = false;
+                        isTransforming = false;
+                        imageCanvas.style.cursor = 'pointer';
+                        circularCanvas.style.cursor = 'pointer';
+                        if (activeControlPoint) {
+                            activeControlPoint = null;
+                            drawFlag(); // 绘制非选中状态
+                            saveState(); // 拖动/缩放结束后保存状态
+                        }
+                    }
+                }
+
+                // --- 下载逻辑 ---
+                function downloadImage(type = 'square') {
+                    if (!originalImage) return;
+
+                    // 使用 processCanvas (原始分辨率)
+                    if (type === 'square') {
+                        const url = processCanvas.toDataURL('image/png');
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${originalFileName}_deal.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    } else if (type === 'circular') {
+                        // 离屏 Canvas 用于圆形裁剪
+                        const finalCanvas = document.createElement('canvas');
+                        const finalCtx = finalCanvas.getContext('2d');
+                        const size = Math.min(processCanvas.width, processCanvas.height);
+                        finalCanvas.width = size;
+                        finalCanvas.height = size;
+                        const centerX = processCanvas.width / 2;
+                        const centerY = processCanvas.height / 2;
+                        const radius = size / 2;
+
+                        finalCtx.beginPath();
+                        finalCtx.arc(radius, radius, radius, 0, Math.PI * 2);
+                        finalCtx.closePath();
+                        finalCtx.clip();
+
+                        // 绘制 Process Canvas 的内容，以中心对齐
+                        finalCtx.drawImage(
+                            processCanvas,
+                            centerX - radius, // sx
+                            centerY - radius, // sy
+                            size,             // sWidth
+                            size,             // sHeight
+                            0, 0, size, size  // dx, dy, dWidth, dHeight
+                        );
+
+                        const url = finalCanvas.toDataURL('image/png');
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${originalFileName}_flag_circular.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    }
+                }
+                
+                downloadBtn.addEventListener('click', () => {
+                        downloadImage('square');
+            });
+
+
+                // --- 文件/拖放事件 ---
+                avatarUpload.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        processImageFile(e.target.files[0]);
+                    }
+                });
+
+                dropArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropArea.classList.add('drag-over');
+                });
+
+                dropArea.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    dropArea.classList.remove('drag-over');
+                });
+
+                dropArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropArea.classList.remove('drag-over');
+                    if (e.dataTransfer.files.length > 0) {
+                        const file = e.dataTransfer.files[0];
+                        if (file.type.startsWith('image/')) {
+                            processImageFile(file);
+                        } else {
+                            alert('请拖放图片文件。');
+                        }
+                    }
+                });
+
+
+                // --- 交互事件绑定 (在 Canvas 容器上监听，以捕获整个 300x300 区域的事件) ---
+                imageCanvas.addEventListener('mousedown', handleMouseDown);
+                circularCanvas.addEventListener('mousedown', handleMouseDown);
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+                
+                // 键盘快捷键 (撤销/重做)
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        if (e.key === 'z') { // Ctrl+Z / Cmd+Z (撤销)
+                            e.preventDefault();
+                            if (historyIndex > 0) {
+                                historyIndex--;
+                                loadState(historyStack[historyIndex]);
+                            }
+                        } else if (e.key === 'y') { // Ctrl+Y / Cmd+Y (重做)
+                            e.preventDefault();
+                            if (historyIndex < historyStack.length - 1) {
+                                historyIndex++;
+                                loadState(historyStack[historyIndex]);
+                            }
+                        }
+                    }
+                });
+                
+                function loadState(state) {
+                    flagOffset = { ...state.flagOffset };
+                    syncScale(state.flagScale, true);
+                    syncRotation(state.flagRotation, true);
+                    
+                    if (state.currentFlagKey !== currentFlagKey) {
+                        const template = FLAG_TEMPLATES[state.currentFlagKey];
+                        if(template) {
+                            currentFlagKey = state.currentFlagKey;
+                            flagImg.src = template.path; // 重新加载旗帜图片
+                            renderFlagGallery(); // 更新选择状态
+                            // flagImg.onload 会触发 drawFlag，但为确保立即更新，在主图加载完成后也强制调用一次
+                            if (flagImg.complete && flagImg.naturalWidth !== 0) {
+                                drawFlag();
+                            }
+                        }
+                    } else {
+                        drawFlag();
+                    }
+                }
+
+
+                // --- 动态获取贡献者信息 (采纳用户建议) ---
+                function fetchContributors() {
+                    const repo = 'bghtnya/TransFlag_Avatar_Tool';
+                    const url = `https://api.github.com/repos/${repo}/contributors`;
+                    const container = document.getElementById('contributorsContainer');
+
+                    // 初始显示加载信息
+                    container.innerHTML = '<h3>项目贡献者</h3><p>正在加载贡献者信息...</p>';
+
+                    fetch(url)
+                        .then(response => {
+                            if (!response.ok) {
+                                // 如果 API 调用失败（例如达到速率限制），返回错误
+                                throw new Error(`GitHub API error: ${response.statusText}`);
+                            }
+                            return response.json();
+                        })
+                        .then(contributors => {
+                            // 过滤掉 GitHub Actions 或其他自动化机器人
+                            const humanContributors = contributors.filter(c => c.type === 'User');
+                            
+                            if (humanContributors.length === 0) {
+                                container.innerHTML = '<h3>项目贡献者</h3><p>暂无贡献者信息。</p>';
+                                return;
+                            }
+
+                            const listItems = humanContributors.map(contributor => `
+                                <li class="contributor-item">
+                                    <img src="${contributor.avatar_url}" alt="${contributor.login}'s avatar" class="contributor-avatar">
+                                    <a href="${contributor.html_url}" target="_blank" class="contributor-login">${contributor.login}</a>
+                                </li>
+                            `).join('');
+
+                            container.innerHTML = `
+                                <h3>项目贡献者</h3>
+                                <ul class="contributor-list">
+                                    ${listItems}
+                                </ul>
+                            `;
+                        })
+                        .catch(error => {
+                            console.error("Failed to fetch contributors:", error);
+                            container.innerHTML = '<h3>项目贡献者</h3><p>无法同步贡献者信息。请访问项目仓库查看。</p>';
+                        });
+                }
+
+
+                // --- 初始启动 ---
+                initFlagSelector();
+                updateWrappers(false); // 初始状态没有图片
+                
+                // 在页面加载完毕后立即调用
+                fetchContributors();
+            });
+        </script>
     </div>
-
-    <script src="script.js"></script>
-
-
-    
-
-
- </div>
-    
-    <footer class="main-footer">
-        <div id="contributorsContainer">
-            <p>正在加载贡献者信息...</p>
-        </div>
-        <p>项目仓库：<a href="https://github.com/bghtnya/TransFlag_Avatar_Tool/" target="_blank">TransFlag_Avatar_Tool</a></p>
-    </footer>
 </body>
+
 </html>
