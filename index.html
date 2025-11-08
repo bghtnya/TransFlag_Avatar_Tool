@@ -289,8 +289,10 @@
             margin-top: 40px;
             padding: 20px 0;
             text-align: center;
-            border-top: 1px solid #ddd; /* 添加顶部边框分隔 */
-            color: #666; /* 统一颜色 */
+            border-top: 1px solid #ddd;
+            /* 添加顶部边框分隔 */
+            color: #666;
+            /* 统一颜色 */
             font-size: 14px;
         }
 
@@ -307,7 +309,8 @@
             display: flex;
             justify-content: center;
             flex-wrap: wrap;
-            gap: 20px; /* 增加间隔 */
+            gap: 20px;
+            /* 增加间隔 */
         }
 
         /* 贡献者项目样式 */
@@ -315,7 +318,8 @@
             display: inline-flex;
             align-items: center;
             font-weight: bold;
-            padding: 5px 10px; /* 增加点击区域和视觉分隔 */
+            padding: 5px 10px;
+            /* 增加点击区域和视觉分隔 */
             border-radius: 15px;
             background-color: #f0f0f0;
             transition: background-color 0.3s;
@@ -327,23 +331,29 @@
 
         /* 贡献者头像样式 */
         .contributor-avatar {
-            width: 28px; /* 略微增大 */
-            height: 28px; /* 略微增大 */
+            width: 28px;
+            /* 略微增大 */
+            height: 28px;
+            /* 略微增大 */
             border-radius: 50%;
-            margin-right: 8px; /* 增大右侧间距 */
-            border: 2px solid #4CAF50; /* 添加品牌色边框 */
+            margin-right: 8px;
+            /* 增大右侧间距 */
+            border: 2px solid #4CAF50;
+            /* 添加品牌色边框 */
             vertical-align: middle;
         }
 
         /* 贡献者链接样式 */
         .contributor-login {
-            color: #333; /* 链接颜色改为深色，更易读 */
+            color: #333;
+            /* 链接颜色改为深色，更易读 */
             text-decoration: none;
             transition: color 0.3s;
         }
 
         .contributor-login:hover {
-            color: #4CAF50; /* 鼠标悬停时显示品牌色 */
+            color: #4CAF50;
+            /* 鼠标悬停时显示品牌色 */
             text-decoration: underline;
         }
 
@@ -372,7 +382,7 @@
         </div>
 
         <div class="flag-selection-area">
-            <h2>选择旗帜模板（点击图片选择）</h2>
+            <h2>选择旗帜模板</h2>
             <div id="flagGallery" class="flag-gallery">
             </div>
         </div>
@@ -408,8 +418,9 @@
 
         <footer class="main-footer">
             <div id="contributorsContainer">
-                </div>
-            <p>项目仓库：<a href="https://github.com/bghtnya/TransFlag_Avatar_Tool/" target="_blank">TransFlag_Avatar_Tool</a>
+            </div>
+            <p>项目仓库：<a href="https://github.com/bghtnya/TransFlag_Avatar_Tool/"
+                    target="_blank">TransFlag_Avatar_Tool</a>
             </p>
         </footer>
 
@@ -962,7 +973,7 @@
                     ctx.stroke();
                 }
 
-                // 检查鼠标是否在控制点附近
+                // 检查鼠标/触摸是否在控制点附近
                 function getControlPoint(x, y) {
                     if (!controlPoints.center) return null;
 
@@ -974,14 +985,15 @@
                     // 优先检查缩放/旋转点
                     for (const p of points) {
                         const dist = Math.hypot(x - p.pos.x, y - p.pos.y);
-                        if (dist <= CONTROL_POINT_RADIUS + 5) {
+                        // 增大触摸点击区域 (CONTROL_POINT_RADIUS + 5)
+                        if (dist <= CONTROL_POINT_RADIUS + 10) { 
                             return p.key;
                         }
                     }
 
                     // 检查拖动点
                     const distCenter = Math.hypot(x - controlPoints.center.x, y - controlPoints.center.y);
-                    if (distCenter <= CONTROL_POINT_RADIUS + 5) {
+                    if (distCenter <= CONTROL_POINT_RADIUS + 10) {
                         return 'center';
                     }
 
@@ -1124,6 +1136,110 @@
                         }
                     }
                 }
+                
+                // --- 新增：触摸事件处理函数 ---
+
+                function getTouchPos(e) {
+                    // 确保使用第一个触摸点
+                    const touch = e.touches[0] || e.changedTouches[0];
+                    const rect = touch.target.getBoundingClientRect();
+                    return {
+                        x: touch.clientX - rect.left,
+                        y: touch.clientY - rect.top,
+                    };
+                }
+
+                function handleTouchStart(e) {
+                    if (!originalImage) return;
+
+                    // 确保只在 imageCanvas 或 circularCanvas 上触发交互，并且只有一个触摸点
+                    if (e.target !== imageCanvas && e.target !== circularCanvas || e.touches.length > 1) return;
+
+                    e.preventDefault(); // 阻止默认的滚动行为
+                    isDragging = true;
+
+                    const touchPos = getTouchPos(e);
+                    lastMouse = touchPos;
+                    dragStart = { x: flagOffset.x, y: flagOffset.y };
+                    startScale = flagScale;
+                    startRotation = flagRotation;
+
+                    activeControlPoint = getControlPoint(touchPos.x, touchPos.y);
+
+                    if (activeControlPoint === 'center' || activeControlPoint === 'flag_body') {
+                        activeControlPoint = 'center'; // 将点击旗帜主体也视为拖动
+                    } else if (activeControlPoint === 'scale' || activeControlPoint === 'rotate') {
+                        isTransforming = true;
+                    } else {
+                        isDragging = false;
+                        isTransforming = false;
+                        return;
+                    }
+                    drawFlag(); // 绘制选中状态
+                }
+
+                function handleTouchMove(e) {
+                    if (!originalImage || !isDragging || e.touches.length > 1) return;
+
+                    e.preventDefault(); // 阻止默认的滚动行为
+
+                    const currentMouse = getTouchPos(e);
+                    const t = getPreviewTransform();
+
+                    const dx = currentMouse.x - lastMouse.x;
+                    const dy = currentMouse.y - lastMouse.y;
+
+                    if (activeControlPoint === 'center') {
+                        // 拖动
+                        const deltaX_proc = dx / t.scale;
+                        const deltaY_proc = dy / t.scale;
+
+                        flagOffset.x += deltaX_proc;
+                        flagOffset.y += deltaY_proc;
+                        drawFlag();
+                        deferredSaveState();
+                    } else if (activeControlPoint === 'scale' || activeControlPoint === 'rotate') {
+                        // 缩放/旋转
+                        const cx = controlPoints.center.x;
+                        const cy = controlPoints.center.y;
+                        const currentAngle = Math.atan2(currentMouse.y - cy, currentMouse.x - cx);
+                        const lastAngle = Math.atan2(lastMouse.y - cy, lastMouse.x - cx);
+                        const angleDelta = currentAngle - lastAngle;
+
+                        const currentDist = Math.hypot(currentMouse.x - cx, currentMouse.y - cy);
+                        const lastDist = Math.hypot(lastMouse.x - cx, lastMouse.y - cy);
+                        const distRatio = currentDist / lastDist;
+
+                        if (activeControlPoint === 'rotate') {
+                            flagRotation = (startRotation + angleDelta * 180 / Math.PI) % 360;
+                            syncRotation(flagRotation, true);
+                        }
+
+                        if (activeControlPoint === 'scale') {
+                            flagScale = startScale * distRatio;
+                            syncScale(flagScale, true);
+                        }
+
+                        drawFlag();
+                        deferredSaveState();
+                    }
+
+                    lastMouse = currentMouse;
+                }
+
+                function handleTouchEnd(e) {
+                    if (isDragging) {
+                        isDragging = false;
+                        isTransforming = false;
+                        if (activeControlPoint) {
+                            activeControlPoint = null;
+                            drawFlag(); // 绘制非选中状态
+                            saveState(); // 拖动/缩放结束后保存状态
+                        }
+                    }
+                }
+                // --- 触摸事件处理函数结束 ---
+
 
                 // --- 下载逻辑 ---
                 function downloadImage(type = 'square') {
@@ -1173,10 +1289,10 @@
                         document.body.removeChild(a);
                     }
                 }
-                
+
                 downloadBtn.addEventListener('click', () => {
-                        downloadImage('square');
-            });
+                    downloadImage('square');
+                });
 
 
                 // --- 文件/拖放事件 ---
@@ -1216,6 +1332,14 @@
                 document.addEventListener('mousemove', handleMouseMove);
                 document.addEventListener('mouseup', handleMouseUp);
                 
+                // *** 关键修复：新增触摸事件监听器 ***
+                imageCanvas.addEventListener('touchstart', handleTouchStart);
+                circularCanvas.addEventListener('touchstart', handleTouchStart);
+                document.addEventListener('touchmove', handleTouchMove, { passive: false }); // 必须设置为 false 才能调用 preventDefault
+                document.addEventListener('touchend', handleTouchEnd);
+                document.addEventListener('touchcancel', handleTouchEnd); // 触摸中断也视为结束
+                // **********************************
+
                 // 键盘快捷键 (撤销/重做)
                 document.addEventListener('keydown', (e) => {
                     if (e.ctrlKey || e.metaKey) {
@@ -1234,15 +1358,15 @@
                         }
                     }
                 });
-                
+
                 function loadState(state) {
                     flagOffset = { ...state.flagOffset };
                     syncScale(state.flagScale, true);
                     syncRotation(state.flagRotation, true);
-                    
+
                     if (state.currentFlagKey !== currentFlagKey) {
                         const template = FLAG_TEMPLATES[state.currentFlagKey];
-                        if(template) {
+                        if (template) {
                             currentFlagKey = state.currentFlagKey;
                             flagImg.src = template.path; // 重新加载旗帜图片
                             renderFlagGallery(); // 更新选择状态
@@ -1277,7 +1401,7 @@
                         .then(contributors => {
                             // 过滤掉 GitHub Actions 或其他自动化机器人
                             const humanContributors = contributors.filter(c => c.type === 'User');
-                            
+
                             if (humanContributors.length === 0) {
                                 container.innerHTML = '<h3>项目贡献者</h3><p>暂无贡献者信息。</p>';
                                 return;
@@ -1307,7 +1431,7 @@
                 // --- 初始启动 ---
                 initFlagSelector();
                 updateWrappers(false); // 初始状态没有图片
-                
+
                 // 在页面加载完毕后立即调用
                 fetchContributors();
             });
